@@ -1,0 +1,132 @@
+{{! Template for product details}}
+{
+  "_source": {
+    "excludes": [
+	  "resellersid",
+	  "attributes.*",
+	  "outofstock",
+	  "restrictedflg",
+	  "tatier1",
+	  "tatier2",
+	  "tatier3",
+	  "tatier4",
+	  "plant",
+	  "@timestamp",
+	  "@version",
+	  "distributionchannel",
+	  "_type",
+	  "tags",
+	  "purchaseresellersid",
+	  "aggregatedProducts.purchaseresellersid",
+	  "aggregatedProducts.resellersid",
+	  "prices.customerkey"
+    ]
+  },
+  {{! Above fields are excluded from responce}}
+  "query": {
+    "bool": {
+      "should": [
+	  {
+	    "bool":{
+			"filter":[
+			{{! Just a placeholder to ensure commas are placed correctly. Assuming material will always exist}}
+			{
+				"exists":{
+					"field": "material"
+				}
+			}
+			{{#resellersid.0}},
+			{
+			  "terms": {
+				"resellersid": [
+				  "{{#resellersid}}",
+				  "{{.}}",
+				  "{{/resellersid}}"
+				]
+			  }
+			}
+			{{/resellersid.0}}
+			
+			{{#purchaseresellersid.0}},
+					{
+						"terms": {
+							"purchaseresellersid": [
+								"{{#purchaseresellersid}}",
+								"{{.}}",
+								"{{/purchaseresellersid}}"
+							]
+						}
+					}
+			{{/purchaseresellersid.0}}
+			
+			{{#material.0}},
+			{
+			  "terms": {
+				"material.keyword": [
+				 "{{#material}}",
+				 "{{.}}",
+				 "{{/material}}"
+				]
+			  }
+			}
+			{{/material.0}}
+			{{#mfrmaterialkey}},
+			{
+			  "term": {
+						"mfrmaterialkey.keyword": "{{mfrmaterialkey}}"
+					}
+			}
+			{{/mfrmaterialkey}}
+			]
+		}	
+		}
+		{{#material.0}},
+        {
+          "terms": {
+            "sku.keyword": [
+             "{{#material}}",
+             "{{.}}",
+             "{{/material}}"
+            ]
+          }
+        }
+		{{/material.0}}
+		
+		{{#material.0}},
+        {
+          "terms": {
+            "globalmaterial.keyword": [
+             "{{#material}}",
+             "{{.}}",
+             "{{/material}}"
+            ]
+          }
+        }
+		{{/material.0}}
+		
+      ]
+    }
+  }
+	{{#resellersid.0}},
+	"script_fields" : {
+		"authorizedToPurchase":{
+			"script" : {
+				"lang": "painless",
+				"inline": "if(doc['purchaseresellersid'].value == null) return false;List resellersid=new ArrayList(); {{#resellersid}}resellersid.add(\"{{.}}\");{{/resellersid}}List purchaseresellersid=Arrays.asList(/,/.split(doc['purchaseresellersid'].value));return !Collections.disjoint(purchaseresellersid,resellersid);"
+			}
+		},
+		"aggregatedProducts.authorizedToPurchase":{
+			"script" : {
+				"lang": "painless",
+				"inline": "List resellersid=new ArrayList(); {{#resellersid}}resellersid.add(\"{{.}}\");{{/resellersid}}Map authorizedToPurchaseMap = new HashMap();if(params['_source']['aggregatedProducts'] == null){return authorizedToPurchaseMap;}for(int i=0;i<params['_source']['aggregatedProducts'].size();i++){List purchaseresellersid=params['_source']['aggregatedProducts'][i]['purchaseresellersid'];if(purchaseresellersid == null){authorizedToPurchaseMap.put(params['_source']['aggregatedProducts'][i]['material'],false);}else{authorizedToPurchaseMap.put(params['_source']['aggregatedProducts'][i]['material'],!Collections.disjoint(purchaseresellersid,resellersid));}}return authorizedToPurchaseMap;"
+			}
+		},
+		"aggregatedProducts.authorizedToView":{
+			"script" : {
+				"lang": "painless",
+				"inline": "List resellersid=new ArrayList(); {{#resellersid}}resellersid.add(\"{{.}}\");{{/resellersid}}Map authorizedToPurchaseMap = new HashMap();if(params['_source']['aggregatedProducts'] == null){return authorizedToPurchaseMap;}for(int i=0;i<params['_source']['aggregatedProducts'].size();i++){List resellersidFromDocument=params['_source']['aggregatedProducts'][i]['resellersid'];if(resellersidFromDocument==null){authorizedToPurchaseMap.put(params['_source']['aggregatedProducts'][i]['material'],false);}else{authorizedToPurchaseMap.put(params['_source']['aggregatedProducts'][i]['material'],!Collections.disjoint(resellersidFromDocument,resellersid));}}return authorizedToPurchaseMap;"
+			}
+		}
+	}
+	{{/resellersid.0}}
+}

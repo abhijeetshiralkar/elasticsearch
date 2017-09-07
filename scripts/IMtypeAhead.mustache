@@ -1,0 +1,45 @@
+{{! Template for type Ahead search}}
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {{! Just a placeholder to ensure commas are placed correctly. Assuming material will always exist}}
+			{
+				"exists":{
+					"field": "material"
+				}
+			}
+			{{#resellersid}},
+			{
+			  "terms": {
+				"resellersid": [
+				  "{{#resellersid}}",
+				  "{{.}}",
+				  "{{/resellersid}}"
+				]
+			  }
+			}
+			{{/resellersid}}
+			
+			{{#query_field}},
+			  {
+			  "query_string": {
+				"query": "*{{query_string}}*",
+				"fields": [
+				  "{{query_field}}"
+				]
+			   }
+			 }
+		  {{/query_field}}
+      ]
+    }
+  },
+  "aggs": {
+    "data": {
+      "terms": {
+        "field": "{{query_field}}.keyword"
+      }
+    }
+  }
+}

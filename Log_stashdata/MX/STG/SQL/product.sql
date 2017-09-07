@@ -1,0 +1,1 @@
+Select * from [dbo].[ES_Product_search_MX]

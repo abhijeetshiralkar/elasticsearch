@@ -1,0 +1,22 @@
+---
+# Update the index refresh interval setting
+actions:
+  1:
+    action: index_settings
+    description: >-
+      Update the index refresh interval setting
+    options:
+      index_settings:
+        index:
+          refresh_interval: ${INDEX_REFRESH_INTERVAL}
+      ignore_unavailable: False
+      preserve_existing: False
+    filters:
+    - filtertype: pattern
+      kind: suffix
+      value: ${CURRENT_DATETIME}
+      exclude:
+    - filtertype: pattern
+      kind: prefix
+      value: ${INDEX_NAME_PREFIX}
+      exclude:

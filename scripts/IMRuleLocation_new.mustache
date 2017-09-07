@@ -1,0 +1,371 @@
+{{! Template for defining Location while creating Rule}}
+{
+  "_source": {
+      "excludes": ["resellersid",
+	  "outofstock",
+	  "restrictedflg",
+	  "tatier1",
+	  "tatier2",
+	  "tatier3",
+	  "tatier4",
+	  "plant",
+	  "@timestamp",
+	  "@version",
+	  "distributionchannel",
+	  "_type",
+	  "tags",
+	  "purchaseresellersid",
+	  "aggregatedProducts.purchaseresellersid",
+	  "aggregatedProducts.resellersid",
+	  "prices.customerkey",
+	  "validdays",
+	  "distributionchainmaterialstatus",
+	  "vendorhierarchy"
+	  ]
+    },
+	{{! Size and from are required for pagination}}
+	{{#pageSize}}
+		"size": "{{pageSize}}",
+	{{/pageSize}}
+	{{#pageStart}}
+		"from": "{{pageStart}}",
+	{{/pageStart}}
+	"query":{			  	  
+			  "bool": {
+				"filter": [
+					{{! Just a placeholder to ensure commas are placed correctly. Assuming material will always exist}}
+					{
+						"exists":{
+							"field": "material"
+						}
+					}
+							
+					{{! Get products based on the selected cateogory}}
+					{{#category}},
+					{
+						"term": {
+							"cat1desc.keyword": "{{category}}"
+						}
+					}
+					{{/category}}
+					
+					{{! Get records where either of the subcategory exist for the product}}
+					{{#subCategory.0}},
+					{
+						"terms": {
+							"cat2desc.keyword": [
+								"{{#subCategory}}",
+								"{{.}}",
+								"{{/subCategory}}"
+							]
+						}
+					}			
+					{{/subCategory.0}}
+					{{#vendorname.0}},
+						{
+							"terms": {
+								"vendorname.keyword": [
+									"{{#vendorname}}",
+									"{{.}}",
+									"{{/vendorname}}"				
+								]
+							}
+						}
+					{{/vendorname.0}}
+					
+					{{! Get records where either of the productType exist for the product}}
+					{{#productType.0}},
+					{
+						"terms": {
+							"cat3desc.keyword": [
+									"{{#productType}}",
+									"{{.}}",
+									"{{/productType}}"
+								]
+						}
+					}			
+					{{/productType.0}}
+					
+					{{! Get records where either of the Campaign exist for the product}}
+					{{#campaign.0}},
+					{
+						"nested": {
+						  "path": "campaign",
+							"query": {
+							"terms": {
+								"campaign.promotioncode.keyword": [
+										"{{#campaign}}",
+										"{{.}}",
+										"{{/campaign}}"
+									]
+							}
+						  }
+						}
+					}			
+					{{/campaign.0}}
+						
+
+					{{! Get products for which all the selected status match}}
+					{{#productstatus}},
+					{
+						"term":{
+							"{{.}}":true
+						}
+					}
+					{{/productstatus}}			
+				],
+				"must": [
+					{{! Keyword search. In first case we want exact search but for rest of two cases we need wildcard search}}		
+					{{#keywords}}
+						{
+						"bool": {
+							"should": [
+							{
+									"multi_match": {
+									  "query": "{{.}}",
+									  "type": "cross_fields",
+									  "fields": [
+										"keywords^19",
+										"vendorname^18",
+										"cat3desc^16",
+										"cat2desc^15",
+										"cat1desc^13",
+										"manufacturerpartnumber^11",
+										"mediumdesc^8",
+										"longdesc1^7",
+										"material^5",
+										"upcean^3"
+									  ],
+										"boost": 3,
+										"analyzer":"synonym_stemmer",
+										"operator":   "and"
+										
+									}
+							},
+							{
+									"multi_match": {
+									  "query": "{{.}}",
+									  "type": "most_fields",
+									  "fields": [
+										"keywords^19",
+										"vendorname^18",
+										"cat3desc^16",
+										"cat2desc^15",
+										"cat1desc^13",
+										"mediumdesc^8",
+										"longdesc1^7"
+									  ],
+									  "boost": 0.5,
+									  "operator": "and",
+									  "fuzziness": 1                      
+									}
+							},
+							{
+									"simple_query_string": {
+									  "query": "{{.}}*",
+									  "fields": [
+										"cat3desc",
+										"cat2desc",
+										"cat1desc",
+										"vendorname",
+										"mediumdesc",
+										"longdesc1"
+									  ],
+									  "boost": 0.25,
+									  "default_operator": "AND"
+									}
+							},
+							{
+									"simple_query_string": {
+									  "query": "*{{.}}*",
+									  "fields": [
+										"material",
+										"manufacturerpartnumber",
+										"upcean",
+										"submaterial",
+										"globalmaterial"
+									  ],
+									  "default_operator": "AND"
+									}
+							}
+							
+							]
+						} 
+					},
+					{{/keywords}}
+					{{! Process listofProducts. Expecting we will never get request for keywords and listofProducts at the same time}}
+					{{#listOfProducts.0}}
+					{
+						"bool":
+						{
+							"should": [
+								{{#listOfProducts}}
+								{
+									"multi_match": {
+										"query": "{{.}}",
+										"fields": [
+											"material",
+											"manufacturerpartnumber",
+											"upcean",
+											"submaterial",
+											"globalmaterial"
+										]
+									}
+								},
+								{{/listOfProducts}}
+								{{! Added to avoid last comma. Assuming salesrank will never be negative}}
+								{
+									"term":{
+										"salesrank": -100
+									}
+								}				
+							]
+						}
+					},
+					{{/listOfProducts.0}}
+					{{! Just a placeholder to ensure commas are placed correctly. Assuming material will always exist}}
+					{
+						"exists":{
+							"field": "material"
+						}
+					}
+				]
+			  }
+			},
+	  "aggs": {
+		"category": {
+		  "terms": {
+			"field": "cat1desc.keyword",
+			"size": 200
+		  }
+		},
+		"vendorname": {
+		  "terms": {
+			"field": "vendorname.keyword",
+			"size": 3000
+		  }
+		},
+		"subCategory": {
+		  "terms": {
+			"field": "cat2desc.keyword",
+			"size": 500
+		  }
+		},
+		"productType": {
+		  "terms": {
+			"field": "cat3desc.keyword",
+			"size": 500
+		  }
+		},
+		"campaign": {
+		  "nested": {
+			"path": "campaign"
+		  },
+		  "aggs": {
+			"campaignAggs": {
+			  "terms": {
+				"field": "campaign.promotioncode.keyword"
+			  }
+			}
+		  }
+		},
+		"ProductStatus.instock": {
+		  "filter": {
+			"term": {
+			  "instock": true
+			}
+		  }
+		},
+		"ProductStatus.instockororder": {
+		  "filter": {
+			"term": {
+			  "instockororder": true
+			}
+		  }
+		},
+		"ProductStatus.newproductflag": {
+		  "filter": {
+			"term": {
+			  "newproductflag": "true"
+			}
+		  }
+		},
+		"ProductStatus.discontinuedflag": {
+		  "filter": {
+			"term": {
+			  "discontinuedflag": true
+			}
+		  }
+		},
+		"ProductStatus.bomflag": {
+		  "filter": {
+			"term": {
+			  "bomflag": true
+			}
+		  }
+		},
+		"ProductStatus.componentflag": {
+		  "filter": {
+			"term": {
+			  "componentflag": true
+			}
+		  }
+		},
+		"ProductStatus.directshipflag": {
+		  "filter": {
+			"term": {
+			  "directshipflag": true
+			}
+		  }
+		},
+		"ProductStatus.isesdproduct": {
+		  "filter": {
+			"term": {
+			  "isesdproduct": true
+			}
+		  }
+		},
+		"ProductStatus.heavyweightflag": {
+		  "filter": {
+			"term": {
+			  "heavyweightflag": true
+			}
+		  }
+		},
+		"ProductStatus.warrantyproduct": {
+		  "filter": {
+			"term": {
+			  "warrantyproduct": true
+			}
+		  }
+		},
+		"ProductStatus.enduserrequired": {
+		  "filter": {
+			"term": {
+			  "enduserrequired": true
+			}
+		  }
+		},
+		"ProductStatus.noreturnsflag": {
+		  "filter": {
+			"term": {
+			  "noreturnsflag": true
+			}
+		  }
+		},
+		"ProductStatus.returnlimitations": {
+		  "filter": {
+			"term": {
+			  "returnlimitations": true
+			}
+		  }
+		},
+		"ProductStatus.refurbishedflag": {
+		  "filter": {
+			"term": {
+			  "refurbishedflag": true
+			}
+		  }
+		}
+	  }
+}

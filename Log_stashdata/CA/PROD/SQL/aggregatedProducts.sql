@@ -1,0 +1,1 @@
+select * from [dbo].[AggregatedProducts] where salesorganization=8030 order by x_rec_spec

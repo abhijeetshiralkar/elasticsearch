@@ -1,0 +1,6 @@
+laptop,notebook
+iphone,apple iphone
+ipad,apple ipad
+AppleCare Macbook,Macbook Air,Macbook pro
+hp toner,HEWLETT PACKARD-LASER JET TONERS
+Ergotronic Workfit,Ergotron Workfit,ergotron

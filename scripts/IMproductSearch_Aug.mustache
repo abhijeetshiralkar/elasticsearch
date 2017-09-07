@@ -1,0 +1,728 @@
+{{! Template for product search}}
+{
+	"_source": {
+      "excludes": ["resellersid",
+	  "outofstock",
+	  "restrictedflg",
+	  "tatier1",
+	  "tatier2",
+	  "tatier3",
+	  "tatier4",
+	  "plant",
+	  "@timestamp",
+	  "@version",
+	  "distributionchannel",
+	  "_type",
+	  "tags",
+	  "purchaseresellersid",
+	  "aggregatedProducts.purchaseresellersid",
+	  "aggregatedProducts.resellersid",
+	  "prices.customerkey",
+	  "validdays",
+	  "distributionchainmaterialstatus",
+	  "vendorhierarchy"
+	  ]
+    },
+	{{! Size and from are required for pagination}}
+	{{#pageSize}}
+		"size": "{{pageSize}}",
+	{{/pageSize}}
+	{{#pageStart}}
+		"from": "{{pageStart}}",
+	{{/pageStart}}
+	{{#sortBy}}
+    "sort": [
+      {
+        "{{sortBy}}": {
+			{{#sortDirection}}
+				"order": "{{sortDirection}}"
+			{{/sortDirection}}
+			{{^sortDirection}}
+				"order": "asc"
+			{{/sortDirection}}
+        }
+      }
+    ],
+	{{/sortBy}}
+	{{! To be uncommented when the changes on front end are completed}}	
+	"query":{
+		"function_score": {		
+			"query": {
+			  {{! If viewAll is true then execute match_all}}
+			  {{#viewAll}}
+				  "match_all": {}
+			  {{/viewAll}}	 
+			  {{^viewAll}}	  
+			  "bool": {
+				"filter": [
+					{{! Just a placeholder to ensure commas are placed correctly. Assuming material will always exist}}
+					{
+						"exists":{
+							"field": "material"
+						}
+					}
+					{{#resellersid.0}},
+					{
+						{{! Get records where either of the resellersid exist for the product}}
+						"terms": {
+							"resellersid": [
+								"{{#resellersid}}",
+								"{{.}}",
+								"{{/resellersid}}"
+							]
+						}
+					}
+					{{/resellersid.0}}
+					
+					{{#purchaseresellersid.0}},
+					{
+						"terms": {
+							"purchaseresellersid": [
+								"{{#purchaseresellersid}}",
+								"{{.}}",
+								"{{/purchaseresellersid}}"
+							]
+						}
+					}
+					{{/purchaseresellersid.0}}
+					
+					{{! Get products based on the selected cateogory}}
+					{{#category}},
+					{
+						"term": {
+							"cat1desc.keyword": "{{category}}"
+						}
+					}
+					{{/category}}
+					
+					{{! Get records where either of the subcategory exist for the product}}
+					{{#subCategory.0}},
+					{
+						"terms": {
+							"cat2desc.keyword": [
+								"{{#subCategory}}",
+								"{{.}}",
+								"{{/subCategory}}"
+							]
+						}
+					}			
+					{{/subCategory.0}}
+					
+					{{! Get records where either of the productType exist for the product}}
+					{{#productType.0}},
+					{
+						"terms": {
+							"cat3desc.keyword": [
+									"{{#productType}}",
+									"{{.}}",
+									"{{/productType}}"
+								]
+						}
+					}			
+					{{/productType.0}}
+					
+					{{! Get records where either of the Campaign exist for the product}}
+					{{#campaign.0}},
+					{
+						"nested": {
+						  "path": "campaign",
+							"query": {
+							"terms": {
+								"campaign.promotioncode.keyword": [
+										"{{#campaign}}",
+										"{{.}}",
+										"{{/campaign}}"
+									]
+							}
+						  }
+						}
+					}			
+					{{/campaign.0}}
+			
+					{{#priceRangeSearch}},
+					{{! Get records based on the price range provided by user}}			
+					{
+						"range": {
+							"dealerprice": {
+								{{#minPrice}}
+									"gte": "{{minPrice}}"
+									{{#maxPrice}},{{/maxPrice}}
+								{{/minPrice}}
+								{{#maxPrice}}
+									"lte": "{{maxPrice}}"
+								{{/maxPrice}}
+							}
+						}
+					}
+					{{/priceRangeSearch}}	
+
+					{{! Get records based on the attribute name and non absolute value}}
+					{{#nonAbsoluteAttributes}},
+					{
+					   "nested": {
+							"path": "attributes",
+							"query": {
+								"bool": {
+									"must": [
+										{
+											"term": {
+												"attributes.attributename": "{{attributename}}"
+											}
+										},
+										{
+											"term": {
+												"attributes.attributevalue": "{{attributevalue}}"
+											}
+										}
+									]
+								}
+							}
+						}
+					}
+					{{/nonAbsoluteAttributes}}	
+
+					{{! Get records based on the attribute name and absolute value}}
+					{{#absoluteAttributes}},
+					{
+					   "nested": {
+							"path": "attributes",
+							"query": {
+								"bool": {
+									"must": [
+										{
+											"term": {
+												"attributes.attributename": "{{attributename}}"
+											}
+										},
+										{
+											"range": {
+												"attributes.absolutevalue":{
+													{{! Conditions can be 'gte', 'lte' and if both conditions are sent then it is check for equality}}
+													{{#conditions}}
+														"{{.}}":"{{value}}",
+													{{/conditions}}
+													"boost" : 1.0
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					}
+					{{/absoluteAttributes}}		
+
+					{{! Get products for which all the selected price related status match}}
+					{{#priceRelatedProductStatus}},
+					{
+					   "nested": {
+							"path": "prices",
+							"query": {
+								"term":{
+									"{{.}}":true
+								}
+							}
+						}
+					}
+					{{/priceRelatedProductStatus}}		
+
+					{{! Get products for which all the selected status match}}
+					{{#productstatus}},
+					{
+						"term":{
+							"{{.}}":true
+						}
+					}
+					{{/productstatus}}			
+				],
+				"must": [
+					{{! Keyword search. In first case we want exact search but for rest of two cases we need wildcard search}}		
+					{{#keywords}}
+						{
+						"bool": {
+							"should": [
+							{
+									"multi_match": {
+									  "query": "{{.}}",
+									  "type": "cross_fields",
+									  "fields": [
+										"keywords^19",
+										"vendorname^18",
+										"cat3desc^16",
+										"cat2desc^15",
+										"cat1desc^13",
+										"manufacturerpartnumber^11",
+										"mediumdesc^8",
+										"longdesc1^7",
+										"material^5",
+										"upcean^3"
+									  ],
+										"boost": 3,
+										"analyzer":"synonym_stemmer",
+										"operator":   "and"
+										
+									}
+							},
+							{
+									"multi_match": {
+									  "query": "{{.}}",
+									  "type": "most_fields",
+									  "fields": [
+										"keywords^19",
+										"vendorname^18",
+										"cat3desc^16",
+										"cat2desc^15",
+										"cat1desc^13",
+										"mediumdesc^8",
+										"longdesc1^7"
+									  ],
+									  "boost": 0.5,
+									  "operator": "and",
+									  "fuzziness": 1                      
+									}
+							},
+							{
+									"simple_query_string": {
+									  "query": "{{.}}*",
+									  "fields": [
+										"cat3desc",
+										"cat2desc",
+										"cat1desc",
+										"vendorname",
+										"mediumdesc",
+										"longdesc1"
+									  ],
+									  "boost": 0.25,
+									  "default_operator": "AND"
+									}
+							},
+							{
+									"simple_query_string": {
+									  "query": "*{{.}}*",
+									  "fields": [
+										"material",
+										"manufacturerpartnumber",
+										"upcean",
+										"submaterial",
+										"globalmaterial"
+									  ],
+									  "default_operator": "AND"
+									}
+							}
+							
+							]
+						} 
+					},
+					{{/keywords}}
+					{{! Process listofProducts. Expecting we will never get request for keywords and listofProducts at the same time}}
+					{{#listOfProducts.0}}
+					{
+						"bool":
+						{
+							"should": [
+								{{#listOfProducts}}
+								{
+									"multi_match": {
+										"query": "{{.}}",
+										"fields": [
+											"material",
+											"manufacturerpartnumber",
+											"upcean",
+											"submaterial",
+											"globalmaterial"
+										]
+									}
+								},
+								{{/listOfProducts}}
+								{{! Added to avoid last comma. Assuming salesrank will never be negative}}
+								{
+									"term":{
+										"salesrank": -100
+									}
+								}				
+							]
+						}
+					},
+					{{/listOfProducts.0}}
+					{{! Just a placeholder to ensure commas are placed correctly. Assuming material will always exist}}
+					{
+						"exists":{
+							"field": "material"
+						}
+					}
+				]
+			  }
+			  {{/viewAll}}
+			},
+			"field_value_factor": 
+			{
+				"field": "scoringfactor"
+			},
+			"boost_mode": "sum"	
+		}
+	},
+	{{#resellersid.0}}
+	"script_fields" : {
+		"authorizedToPurchase":{
+			"script" : {
+				"lang": "painless",
+				"inline": "if(doc['purchaseresellersid'].value == null){ return false;}List resellersid=new ArrayList(); {{#resellersid}}resellersid.add(\"{{.}}\");{{/resellersid}}List purchaseresellersid=Arrays.asList(/,/.split(doc['purchaseresellersid'].value));return !Collections.disjoint(purchaseresellersid,resellersid);"
+			}
+		},
+		"aggregatedProducts.authorizedToPurchase":{
+			"script" : {
+				"lang": "painless",
+				"inline": "List resellersid=new ArrayList(); {{#resellersid}}resellersid.add(\"{{.}}\");{{/resellersid}}Map authorizedToPurchaseMap = new HashMap();if(params['_source']['aggregatedProducts'] == null){return authorizedToPurchaseMap;}for(int i=0;i<params['_source']['aggregatedProducts'].size();i++){List purchaseresellersid=params['_source']['aggregatedProducts'][i]['purchaseresellersid'];if(purchaseresellersid == null){authorizedToPurchaseMap.put(params['_source']['aggregatedProducts'][i]['material'],false);}else{authorizedToPurchaseMap.put(params['_source']['aggregatedProducts'][i]['material'],!Collections.disjoint(purchaseresellersid,resellersid));}}return authorizedToPurchaseMap;"
+			}
+		},
+		"aggregatedProducts.authorizedToView":{
+			"script" : {
+				"lang": "painless",
+				"inline": "List resellersid=new ArrayList(); {{#resellersid}}resellersid.add(\"{{.}}\");{{/resellersid}}Map authorizedToPurchaseMap = new HashMap();if(params['_source']['aggregatedProducts'] == null){return authorizedToPurchaseMap;}for(int i=0;i<params['_source']['aggregatedProducts'].size();i++){List resellersidFromDocument=params['_source']['aggregatedProducts'][i]['resellersid'];if(resellersidFromDocument==null){authorizedToPurchaseMap.put(params['_source']['aggregatedProducts'][i]['material'],false);}else{authorizedToPurchaseMap.put(params['_source']['aggregatedProducts'][i]['material'],!Collections.disjoint(resellersidFromDocument,resellersid));}}return authorizedToPurchaseMap;"
+			}
+		}
+	},
+	{{/resellersid.0}}
+	{{! Starting with the aggregations}}		
+	"aggs": {
+		{{! All aggregations other than vendor aggregation. we consider vendor filter for all other aggregations other than vendor aggregation}}
+		"all_aggregations": {
+			"filter":{
+				"bool": {
+					"filter":[
+						{
+							"exists":{
+								"field": "material"
+							}
+						}
+						{{#vendorname.0}},
+						{
+							"terms": {
+								"vendorname.keyword": [
+									"{{#vendorname}}",
+									"{{.}}",
+									"{{/vendorname}}"				
+								]
+							}
+						}
+						{{/vendorname.0}}
+					]
+				}
+			},
+			"aggs":{				
+				"category": {
+							"terms": {
+								"field": "cat1desc.keyword",
+								"size":200
+							}
+				},
+				"subCategory":{
+					"terms": {
+						"field": "cat2desc.keyword",
+						"size":500
+					}
+				},
+				"productType":{
+					"terms": {
+						"field": "cat3desc.keyword",
+						"size":500
+					}		
+				},
+				"vendorhierarchy": {
+                    "terms": {
+                        "field": "vendorhierarchy.keyword",
+                        "size": 500
+                   }
+               },
+				"campaign": {
+					"nested": {
+					  "path": "campaign"
+					},
+					"aggs": {
+					  "campaignAggs": {
+						"terms": {
+						  "field": "campaign.promotioncode.keyword"
+						}
+					  }
+					}
+				},
+				"instock": {
+				  "filter": {
+					"term": {
+					  "instock": true
+					}
+				  }
+				},
+				"instockororder": {
+				  "filter": {
+					"term": {
+					  "instockororder": true
+					}
+				  }
+				},
+				"newproductflag": {
+				  "filter": {
+					"term": {
+					  "newproductflag": "true"
+					}
+				  }
+				},
+				"discontinued": {
+				  "filter": {
+					"term": {
+					  "discontinuedflag": true
+					}
+				  }
+				},
+				"bundleavailable": {
+				  "filter": {
+					"term": {
+					  "bomflag": true
+					}
+				  }
+				},
+				"componentproducts":{
+					"filter": {
+						"term": {
+							"componentflag": true
+						}
+					}
+				},
+				"directship":{
+					"filter": {
+						"term": {
+							"directshipflag": true
+						}
+					}
+				},
+				"download":{
+					"filter": {
+						"term": {
+							"isesdproduct": true
+						}
+					}
+				},
+				"heavyweight":{
+					"filter": {
+						"term": {
+							"heavyweightflag": true
+						}
+					}
+				},
+				"warrantyproducts":{
+					"filter": {
+						"term": {
+							"warrantyproduct": true
+						}
+					}
+				},
+				"enduserrequired":{
+					"filter": {
+						"term": {
+							"enduserrequired": true
+						}
+					}
+				},
+				"noreturns":{
+					"filter": {
+						"term": {
+							"noreturnsflag": true
+						}
+					}		
+				},
+				"returnlimitations":{
+					"filter": {
+						"term": {
+							"returnlimitations": true
+						}
+					}		
+				},
+				"refurbished":{
+					"filter": {
+						"term": {
+							"refurbishedflag": true
+						}
+					}		
+				}
+				{{#resellersid.0}},
+				"authorizedtopurchase": {
+				  "filter": {
+					"bool": {
+					  "filter": [
+						{
+						  "terms": {
+								"purchaseresellersid": [
+									"{{#resellersid}}",
+										"{{.}}",
+									"{{/resellersid}}"
+								]
+						  }
+						},
+						{
+						  "term": {
+							"purchasableflag": "true"
+						  }
+						}
+					  ]
+					}
+				  }
+				}
+				{{/resellersid.0}},
+				{{! Aggregations to get the top level buckets based on attribute name and low level buckets based on attribute value}}		
+				"attributes": {
+				  "nested": {
+					"path": "attributes"
+				  },
+				  "aggs": {
+					"techSpecAggregation": {
+					  "terms": {
+						"field": "attributes.attributename"
+						{{#attibutesAggregationSize}}
+						,"size":"{{attibutesAggregationSize}}"
+						{{/attibutesAggregationSize}}
+					  },
+					  "aggs": {
+						"attributevalue": {
+						  "terms": {
+							"field": "attributes.attributevalue"
+							{{#attibutesAggregationSize}}
+							,"size":"{{attibutesAggregationSize}}"
+							{{/attibutesAggregationSize}}
+						  },
+						  "aggs": {
+							"absolutevalue": {
+							  "terms": {
+								"field": "attributes.absolutevalue",
+								"size": 50
+							  }
+							}
+						  }
+						},
+						"isabsolute": {
+							"filter": {
+								"term": {
+									"attributes.isabsolute": true
+								}
+							}
+						}
+					  }
+					}
+				  }
+				}
+				{{#customerKey}},
+				"priceaggregations": {
+				  "nested": {
+					"path": "prices"
+				  },
+				  "aggs": {
+					"quantitybreak": {
+					  "filter": {
+						"bool": {
+						  "filter": [
+							{
+								"term": {
+								  "prices.customerkey": "{{customerKey}}"
+								}
+							},
+							{
+							  "term": {
+								"prices.quantitybreakflag": true
+							  }
+							}
+						  ]
+						}
+					  }
+					},
+					"promotion": {
+					  "filter": {
+						"bool": {
+						  "filter": [
+							{
+								"term": {
+								  "prices.customerkey": "{{customerKey}}"
+								}                
+							},
+							{
+							  "term": {
+								"prices.promotionflag": true
+							  }
+							}
+						  ]
+						}
+					  }
+					},
+					"shipalong": {
+					  "filter": {
+						"bool": {
+						  "filter": [
+							{
+								"term": {
+								  "prices.customerkey": "{{customerKey}}"
+								}                },
+							{
+							  "term": {
+								"prices.shipalongflagdim": true
+							  }
+							}
+						  ]
+						}
+					  }
+					},
+					"webonlyprice": {
+					  "filter": {
+						"bool": {
+						  "filter": [
+							{
+								"term": {
+								  "prices.customerkey": "{{customerKey}}"
+								}                
+							},
+							{
+							  "term": {
+								"prices.webdiscountflag": true
+							  }
+							}
+						  ]
+						}
+					  }
+					}
+				  }
+				}
+				{{/customerKey}}
+			}
+		},
+		{{! Since we want vendor aggregation to not consider the vendor selection we have moved the vendor related aggregation outside the other aggregations.}}
+		"vendor": {
+			"terms": {
+				"field": "vendorname.keyword",
+				"size":3000
+			}
+		}
+	}
+		{{#keywords}},
+					"suggest": {
+						"didyoumean": {
+							"text": "{{.}}",
+								"phrase": {
+									"field": "did_you_mean",
+									"size":1
+							}
+						}
+					}
+			{{/keywords}}
+	{{^viewAll}}
+	{{#vendorname.0}},
+	{{! Post filter as we want to add vendorname to the query after the aggregation is done.}}
+	"post_filter": { 
+		{{! Get records where either of the vendor selected exist for the product}}
+		"terms": {
+			"vendorname.keyword": [
+				"{{#vendorname}}",
+				"{{.}}",
+				"{{/vendorname}}"				
+			]
+		}
+	}
+	{{/vendorname.0}}
+	{{/viewAll}}
+}  

@@ -1,0 +1,20 @@
+actions:
+  1:
+    action: forcemerge
+    description: >-
+      forceMerge to 1 segment per shard.  Delay 10 seconds between each
+      forceMerge operation to allow the cluster to quiesce. 
+    options:
+      max_num_segments: 1
+      delay: 10
+      timeout_override:
+      continue_if_exception: False
+    filters:
+    - filtertype: pattern
+      kind: suffix
+      value: ${CURRENT_DATETIME}
+      exclude:
+    - filtertype: pattern
+      kind: prefix
+      value: ${INDEX_NAME_PREFIX}
+      exclude:

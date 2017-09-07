@@ -1,0 +1,28 @@
+---
+# Remove old indices from alias and add new indices
+actions:
+  1:
+    action: alias
+    description: >-
+      Remove old indices and add new indices.
+    options:
+      name: ${ALIAS_NAME}
+      extra_settings:
+      timeout_override:
+      continue_if_exception: False
+    remove:
+      filters:
+      - filtertype: pattern
+        kind: suffix
+        value: ${CURRENT_DATETIME}
+        exclude: True
+    add:
+      filters:
+      - filtertype: pattern
+        kind: suffix
+        value: ${CURRENT_DATETIME}
+        exclude:
+      - filtertype: pattern
+        kind: prefix
+        value: ${INDEX_NAME_PREFIX}
+        exclude:        
