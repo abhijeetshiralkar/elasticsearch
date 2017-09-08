@@ -1,0 +1,12 @@
+## Environment specific index template. For e.g since at production we have only two data node we would have 6 shards and 1 replicas
+PUT _template/imweb-prod
+{  
+   "order":0,
+   "template":"imweb.*",
+   "settings":{  
+      "index":{  
+        "number_of_shards": "6",
+		"number_of_replicas": "1"
+      }
+   }
+}

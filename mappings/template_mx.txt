@@ -1,0 +1,42 @@
+##Country specific settings like synonym, stemmers etc
+PUT _template/imweb-mx
+{  
+   "order":0,
+   "template":"imweb.mx*",
+   "settings":{  
+      "index":{  
+         "analysis":{  
+            "filter":{  
+               "synonym":{  
+                  "type":"synonym",
+                  "synonyms_path":"synonyms.txt",
+                  "ignore_case":true
+               },
+               "stopfilter":{  
+                  "type":"stop",
+                  "stopwords":[  
+                     "and",
+                     "the"
+                  ]
+               },
+               "stemmer":{  
+                  "type":"stemmer",
+                  "name":"minimal_english"
+               }
+            },
+            "analyzer":{  
+               "synonym_stemmer":{  
+                  "filter":[  
+                     "lowercase",
+                     "asciifolding",
+                     "stopfilter",
+                     "synonym",
+                     "stemmer"
+                  ],
+                  "tokenizer":"whitespace"
+               }
+            }
+         }
+      }
+   }
+}

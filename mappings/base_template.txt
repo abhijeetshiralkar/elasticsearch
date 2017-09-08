@@ -1,0 +1,12 @@
+## Base index template. This will have settings that are common for all indices like refresh_interval etc
+PUT _template/imweb
+{  
+   "order":0,
+   "template":"imweb.*",
+   "settings":{  
+      "index":{  
+         "refresh_interval":"5s",
+         "max_result_window":"1000000"
+      }
+   }
+}

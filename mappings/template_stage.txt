@@ -1,0 +1,12 @@
+## Environment specific index template. For e.g since at stage and local we have only one data node we would have 3 shards and 0 replicas
+PUT _template/imweb-stage
+{  
+   "order":0,
+   "template":"imweb.*",
+   "settings":{  
+      "index":{  
+        "number_of_shards": "3",
+		"number_of_replicas": "0"
+      }
+   }
+}
