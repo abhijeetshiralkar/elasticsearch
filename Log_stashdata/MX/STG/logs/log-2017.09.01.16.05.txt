@@ -1,6 +1,0 @@
--------------------------------------------------------------------------------------------------------- 
-Creating index imweb.mx-2017.09.01.16.05 
-Started processing IMProducts.conf  
-Could not find log4j2 configuration at path /ElasticSearch/logstash-5.4.0/config/log4j2.properties. Using default config which logs to console
-16:06:08.130 [LogStash::Runner] INFO  logstash.agent - No config files found in path {:path=>"D:/ElasticSearch/logstash-5.4.0/data/configs/IMProducts.conf"}
-16:06:08.136 [LogStash::Runner] ERROR logstash.agent - failed to fetch pipeline configuration {:message=>"No config files found: D:\\ElasticSearch\\logstash-5.4.0\\data\\configs\\IMProducts.conf. Can you make sure this path is a logstash config file?"}

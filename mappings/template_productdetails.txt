@@ -1,7 +1,7 @@
 ## Template for product details
 PUT _template/imweb-pdetails
 {  
-   "order":3,
+   "order":0,
    "template":"imweb.*-pdetails-*",
     "settings":{  
       "index":{  
@@ -44,6 +44,16 @@ PUT _template/imweb-pdetails
                      "type":"keyword"
                   }
                }
+            },
+			"globalmaterial":{  
+               "type":"text",
+               "fields":{  
+                  "keyword":{  
+                     "type":"keyword",
+                     "ignore_above":256
+                  }
+               },
+               "analyzer":"lowercasespaceanalyzer"
             },
             "prod_spec":{  
                "type":"nested",
